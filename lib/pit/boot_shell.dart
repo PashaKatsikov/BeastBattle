@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../session_scope.dart';
 import '../skin.dart';
@@ -10,7 +11,7 @@ import 'stash.dart';
 import 'trail.dart';
 import 'verdict_post.dart';
 
-class BootShell extends StatelessWidget {
+class BootShell extends StatefulWidget {
   const BootShell({
     super.key,
     required this.session,
@@ -29,19 +30,44 @@ class BootShell extends StatelessWidget {
   final Horn horn;
 
   @override
+  State<BootShell> createState() => _BootShellState();
+}
+
+class _BootShellState extends State<BootShell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SessionScope(
-      session: session,
+      session: widget.session,
       child: MaterialApp(
         title: 'Beast Battle',
         debugShowCheckedModeBanner: false,
         theme: Skin.theme,
         home: PitRouter(
-          stash: stash,
-          probe: probe,
-          trail: trail,
-          poster: poster,
-          horn: horn,
+          stash: widget.stash,
+          probe: widget.probe,
+          trail: widget.trail,
+          poster: widget.poster,
+          horn: widget.horn,
         ),
       ),
     );

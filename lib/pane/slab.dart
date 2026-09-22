@@ -122,7 +122,7 @@ class _GhostSlabState extends State<GhostSlab> {
         duration: const Duration(milliseconds: 80),
         child: Container(
           width: widget.width,
-          height: widget.tight ? 44 : 50,
+          height: widget.tight ? 46 : 54,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),

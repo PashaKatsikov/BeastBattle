@@ -12,7 +12,6 @@ import '../screens/lobby.dart';
 import '../session_scope.dart';
 import '../skin.dart';
 import 'fork.dart';
-import 'glare.dart';
 import 'horn.dart';
 import 'link_probe.dart';
 import 'reply.dart';
@@ -42,13 +41,11 @@ class PitRouter extends StatefulWidget {
 
 class _PitRouterState extends State<PitRouter> {
   double _progress = 0.07;
-  String _label = 'WARMING UP THE ARENA';
   bool _gone = false;
 
   @override
   void initState() {
     super.initState();
-    Glare.screen('boot');
     widget.horn.onToken = _resend;
     _drive();
   }
@@ -61,20 +58,35 @@ class _PitRouterState extends State<PitRouter> {
 
   void _lift(double value) {
     if (!mounted) return;
-    setState(() {
-      _progress = value.clamp(0.0, 1.0);
-      _label = value < 0.4
-          ? 'WARMING UP THE ARENA'
-          : value < 0.75
-              ? 'LOADING BEASTS'
-              : 'CHARGING REELS';
-    });
+    setState(() => _progress = value.clamp(0.0, 1.0));
+  }
+
+  static const Duration _linkWait = Duration(seconds: 2);
+
+  Future<bool> _up() => widget.probe.online(lookup: _linkWait);
+
+  Future<void> _warmBriefly() async {
+    try {
+      await widget.horn.warm().timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 
   Future<void> _drive() async {
-    await widget.horn.warm();
+    final Lane lane = widget.stash.readLane();
+    if (lane == Lane.cabinet) {
+      unawaited(widget.horn.warm());
+      _lift(0.24);
+      await _toCabinet(0.51);
+      return;
+    }
+    if (!await _up()) {
+      _offline();
+      return;
+    }
+    await _warmBriefly();
+    if (!mounted || _gone) return;
     _lift(0.24);
-    switch (widget.stash.readLane()) {
+    switch (lane) {
       case Lane.cabinet:
         await _toCabinet(0.51);
         return;
@@ -88,7 +100,7 @@ class _PitRouterState extends State<PitRouter> {
   }
 
   Future<void> _first() async {
-    if (!await widget.probe.online()) {
+    if (!await _up()) {
       _offline();
       return;
     }
@@ -105,6 +117,8 @@ class _PitRouterState extends State<PitRouter> {
       _lift(1);
       await _beat();
       _hosted(reply.target!);
+    } else if (reply.broken) {
+      _offline();
     } else {
       await widget.stash.commitLane(Lane.cabinet);
       await _toCabinet(0.86);
@@ -112,7 +126,7 @@ class _PitRouterState extends State<PitRouter> {
   }
 
   Future<void> _resume() async {
-    if (!await widget.probe.online()) {
+    if (!await _up()) {
       _lift(1);
       _offline();
       return;
@@ -120,7 +134,6 @@ class _PitRouterState extends State<PitRouter> {
     _lift(0.46);
     final String? queued = await widget.stash.takeQueuedTarget();
     if (queued != null) {
-      Glare.event('link_push');
       _lift(1);
       await _beat();
       _hosted(queued);
@@ -138,8 +151,9 @@ class _PitRouterState extends State<PitRouter> {
     await _beat();
     if (reply.admitted && reply.hasTarget) {
       _hosted(reply.target!);
+    } else if (reply.broken) {
+      _offline();
     } else if (saved != null && saved.isNotEmpty) {
-      Glare.event('link_saved');
       _hosted(saved);
     } else {
       _offline();
@@ -151,16 +165,6 @@ class _PitRouterState extends State<PitRouter> {
     final Map<String, dynamic> body = await widget.trail.compose(
       locale: locale,
       pushToken: widget.horn.token,
-    );
-    Glare.identify(
-      body['af_id']?.toString(),
-      tags: <String, String>{
-        'af_status': body['af_status']?.toString() ?? '',
-        'media_source': body['media_source']?.toString() ?? '',
-        'campaign': body['campaign']?.toString() ?? '',
-        'os': body['os']?.toString() ?? '',
-        'locale': body['locale']?.toString() ?? '',
-      },
     );
     return widget.poster.ask(body);
   }
@@ -177,8 +181,6 @@ class _PitRouterState extends State<PitRouter> {
   Future<void> _beat() => Future<void>.delayed(const Duration(milliseconds: 260));
 
   Future<void> _toCabinet(double from) async {
-    Glare.tag('run', 'cabinet');
-    Glare.event('cabinet_open');
     _lift(from);
     await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -212,8 +214,6 @@ class _PitRouterState extends State<PitRouter> {
   void _hosted(String target) {
     if (_gone || !mounted) return;
     _gone = true;
-    Glare.tag('run', 'hosted');
-    Glare.event('hosted_open');
     if (widget.stash.shouldOfferPromo()) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
@@ -227,14 +227,6 @@ class _PitRouterState extends State<PitRouter> {
       );
       return;
     }
-    Glare.tag(
-      'note_perm',
-      widget.stash.isPromoAllowed()
-          ? 'granted'
-          : widget.stash.isPromoHalted()
-              ? 'halted'
-              : 'snoozed',
-    );
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => HostedPane(
@@ -250,7 +242,6 @@ class _PitRouterState extends State<PitRouter> {
   void _offline() {
     if (_gone || !mounted) return;
     _gone = true;
-    Glare.event('dropped');
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => DarkLine(
@@ -295,14 +286,17 @@ class _PitRouterState extends State<PitRouter> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Text(_label, style: Skin.glow(Skin.cyan, size: 13)),
+                    Text(
+                      '${(_progress * 100).round()}%',
+                      style: Skin.glow(Skin.cyan, size: 13),
+                    ),
                     const SizedBox(height: 10),
                     Container(
-                      height: 14,
+                      height: 28,
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: const Color(0xAA070218),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Skin.pink.withValues(alpha: 0.8), width: 1.2),
                       ),
                       child: LayoutBuilder(
@@ -313,7 +307,7 @@ class _PitRouterState extends State<PitRouter> {
                               duration: const Duration(milliseconds: 180),
                               width: box.maxWidth * _progress.clamp(0.04, 1),
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(12),
                                 gradient: const LinearGradient(
                                   colors: <Color>[Skin.cyan, Skin.electric, Skin.pink],
                                 ),

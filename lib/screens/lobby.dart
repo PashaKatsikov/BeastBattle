@@ -5,7 +5,7 @@ import '../skin.dart';
 import '../widgets/bits.dart';
 import 'floor.dart';
 import 'pay_sheet.dart';
-import 'settings.dart';
+import 'knobs.dart';
 
 class Lobby extends StatelessWidget {
   const Lobby({super.key});
@@ -39,11 +39,11 @@ class Lobby extends StatelessWidget {
                       IconOrb(
                         icon: Icons.settings,
                         onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-                        ),
+                        MaterialPageRoute<void>(builder: (_) => const KnobsScreen()),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
                   const Spacer(flex: 2),
                   const BeastMark(size: 150),
                   const SizedBox(height: 14),
@@ -77,7 +77,7 @@ class Lobby extends StatelessWidget {
                     color: Skin.cyan,
                     wide: true,
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+                      MaterialPageRoute<void>(builder: (_) => const KnobsScreen()),
                     ),
                   ),
                   const Spacer(flex: 2),

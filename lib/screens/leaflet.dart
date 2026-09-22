@@ -4,18 +4,18 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../skin.dart';
 import '../widgets/bits.dart';
 
-class WebPage extends StatefulWidget {
-  const WebPage({super.key, required this.title, required this.url, this.light = false});
+class Leaflet extends StatefulWidget {
+  const Leaflet({super.key, required this.title, required this.url, this.light = false});
 
   final String title;
   final String url;
   final bool light;
 
   @override
-  State<WebPage> createState() => _WebPageState();
+  State<Leaflet> createState() => _LeafletState();
 }
 
-class _WebPageState extends State<WebPage> {
+class _LeafletState extends State<Leaflet> {
   late final WebViewController _c;
   var _busy = true;
   var _err = false;

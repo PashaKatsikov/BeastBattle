@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../session_scope.dart';
 import '../skin.dart';
 import '../slot/math.dart';
-import '../slot/symbols.dart';
+import '../slot/glyphs.dart';
 
 Future<void> showPayTable(BuildContext context) {
   return showModalBottomSheet<void>(

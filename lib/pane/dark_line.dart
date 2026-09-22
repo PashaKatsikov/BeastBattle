@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../pit/glare.dart';
 import 'shell_art.dart';
 import 'slab.dart';
 
@@ -16,14 +15,7 @@ class DarkLine extends StatefulWidget {
 class _DarkLineState extends State<DarkLine> {
   bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    Glare.screen('dropped');
-  }
-
   Future<void> _retry() async {
-    Glare.event('drop_retry');
     if (_busy) return;
     setState(() => _busy = true);
     await Future<void>.delayed(const Duration(milliseconds: 480));

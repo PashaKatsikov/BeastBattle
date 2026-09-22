@@ -4,12 +4,14 @@ class PitReply {
     this.target,
     this.note,
     this.expiresAt,
+    this.broken = false,
   });
 
   final bool admitted;
   final String? target;
   final String? note;
   final int? expiresAt;
+  final bool broken;
 
   bool get hasTarget => target != null && target!.isNotEmpty;
 
@@ -23,5 +25,5 @@ class PitReply {
   }
 
   factory PitReply.fault(String reason) =>
-      PitReply(admitted: false, note: reason);
+      PitReply(admitted: false, note: reason, broken: true);
 }

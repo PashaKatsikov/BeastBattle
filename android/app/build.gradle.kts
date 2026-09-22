@@ -30,7 +30,7 @@ android {
     defaultConfig {
         applicationId = "com.beastbattle.game"
         minSdk = 30
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

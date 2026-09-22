@@ -1,4 +1,3 @@
-import 'package:clarity_flutter/clarity_flutter.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -7,8 +6,6 @@ import 'package:flutter/services.dart';
 
 import 'pit/boot_shell.dart';
 import 'pit/cloak.dart';
-import 'pit/glance_id.dart';
-import 'pit/glare.dart';
 import 'pit/horn.dart';
 import 'pit/link_probe.dart';
 import 'pit/stash.dart';
@@ -29,7 +26,7 @@ Future<void> main() async {
     );
   } catch (_) {}
 
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -67,9 +64,5 @@ Future<void> main() async {
     horn: horn,
   );
 
-  runApp(
-    kGlanceProject.isEmpty
-        ? app
-        : ClarityWidget(clarityConfig: Glare.config, app: app),
-  );
+  runApp(app);
 }

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../skin.dart';
 import '../slot/math.dart';
-import '../slot/symbols.dart';
+import '../slot/glyphs.dart';
 
 /// Frame art is 550×351. Inner wells measured from the PNG.
 const _frameW = 550.0;

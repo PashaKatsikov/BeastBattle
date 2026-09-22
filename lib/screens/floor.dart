@@ -7,7 +7,7 @@ import '../slot/session.dart';
 import '../widgets/bits.dart';
 import '../widgets/reels.dart';
 import 'pay_sheet.dart';
-import 'settings.dart';
+import 'knobs.dart';
 
 class Floor extends StatefulWidget {
   const Floor({super.key});
@@ -154,7 +154,7 @@ class _FloorState extends State<Floor> with WidgetsBindingObserver {
                         icon: Icons.settings,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+                          MaterialPageRoute<void>(builder: (_) => const KnobsScreen()),
                         ),
                       ),
                     ],

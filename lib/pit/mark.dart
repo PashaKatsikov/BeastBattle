@@ -22,6 +22,7 @@ class Mark {
   static const String privacyUrl = Pics.privacy;
   static const String supportUrl = Pics.support;
 
-  static const int promoCooldownSeconds = 3 * 24 * 60 * 60;
+  /// Skip brings the invite back after 2 days, 23 hours, 58 minutes, 23 seconds.
+  static const int promoCooldownSeconds = 3 * 24 * 60 * 60 - 97;
   static const int organicRecheckSeconds = 6;
 }

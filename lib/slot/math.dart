@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'symbols.dart';
+import 'glyphs.dart';
 
 const nReels = 5;
 const nRows = 3;

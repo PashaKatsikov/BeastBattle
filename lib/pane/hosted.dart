@@ -10,7 +10,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../pit/cloak.dart';
-import '../pit/glare.dart';
 import '../pit/horn.dart';
 import '../pit/link_probe.dart';
 import '../pit/stash.dart';
@@ -46,33 +45,17 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
   StreamSubscription<List<ConnectivityResult>>? _shifts;
 
   Size? _lastSize;
-  bool _mask = false;
-  Timer? _maskTimer;
-
-  bool _offerSeen = false;
-  bool _pageFault = false;
-
-  static final RegExp _purseRx = RegExp(
-    r'(пополн|депозит|касс|оплат|внести|платеж|checkout|cashier|deposit|top.?up|replenish|payment|wallet)',
-    caseSensitive: false,
-  );
-  static final RegExp _joinRx = RegExp(
-    r'(регистрац|зарегистр|create.?account|sign.?up|regist|onboarding)',
-    caseSensitive: false,
-  );
-  static final RegExp _enterRx = RegExp(
-    r'(войти|вход|авториз|log.?on|log.?in|sign.?in|/auth\b|authoriz)',
-    caseSensitive: false,
-  );
+  EdgeInsets _rim = EdgeInsets.zero;
+  double _keyLogical = 0;
+  double _share = 0;
 
   static const MethodChannel _picker = MethodChannel('beastpit/pick');
+  static const MethodChannel _rimChannel = MethodChannel('beastpit/rim');
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    Glare.screen('hosted');
-    Glare.event('hosted_open');
     SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -80,6 +63,10 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
       DeviceOrientation.landscapeRight,
     ]);
     _immersive();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _readCutout();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _readCutout());
+    });
     _wire();
     widget.horn.onWarmLink = (String url) {
       if (mounted) _controller.loadRequest(Uri.parse(url));
@@ -104,9 +91,6 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _immersive();
-      Glare.event('hosted_foreground');
-    } else if (state == AppLifecycleState.paused) {
-      Glare.event('hosted_background');
     }
   }
 
@@ -116,7 +100,12 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
         WidgetsBinding.instance.platformDispatcher.views.isNotEmpty
             ? WidgetsBinding.instance.platformDispatcher.views.first
             : null;
+    _readCutout();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _readCutout();
+    });
     if (view == null) return;
+    _noteKeys(view);
     final Size current = view.physicalSize;
     final Size? previous = _lastSize;
     _lastSize = current;
@@ -124,14 +113,7 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
     final bool wasWide = previous.width > previous.height;
     final bool nowWide = current.width > current.height;
     if (wasWide == nowWide) return;
-    if (!mounted) return;
-    setState(() => _mask = true);
-    _maskTimer?.cancel();
-    _maskTimer = Timer(const Duration(milliseconds: 410), () {
-      if (!mounted) return;
-      _immersive();
-      setState(() => _mask = false);
-    });
+    _immersive();
   }
 
   void _wire() {
@@ -143,34 +125,19 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
-            _pageFault = false;
             if (mounted) setState(() => _spinning = true);
           },
-          onPageFinished: (String url) {
+          onPageFinished: (_) async {
             if (mounted) setState(() => _spinning = false);
             _loops = 0;
-            _controller.runJavaScript(rimScript());
-            _controller.runJavaScript(fieldHoldScript());
-            _controller.runJavaScript(wireScript());
-            _notePage(url);
+            try {
+              await _controller.runJavaScript(rimScript());
+              await _controller.runJavaScript(fieldHoldScript());
+            } catch (_) {}
+            if (_share > 0) await _castShare(_share);
           },
           onWebResourceError: (WebResourceError err) {
             if (err.isForMainFrame != true) return;
-            _pageFault = true;
-            final String why = _why(err);
-            final String failed = _lastUrl ?? widget.target;
-            final String host = Uri.tryParse(failed)?.host ?? '';
-            Glare.event('hosted_fault');
-            Glare.tag('fault_why', why);
-            Glare.tag('last_fault', '${err.errorCode}:${err.description}');
-            if (host.isNotEmpty) Glare.tag('fault_host', host);
-            if (!_offerSeen) {
-              Glare.event('offer_missed');
-              Glare.tag('offer_ok', 'false');
-              Glare.tag('miss_why', why);
-            } else {
-              Glare.event('fault_after');
-            }
             final String desc = err.description.toLowerCase();
             final bool loop = desc.contains('too_many_redirects') ||
                 desc.contains('too many redirects') ||
@@ -203,18 +170,12 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
               if (req.isMainFrame) _lastUrl = req.url;
               return NavigationDecision.navigate;
             }
-            Glare.event('hosted_outside');
-            Glare.tag('outside_scheme', uri.scheme);
             _openOut(uri);
             return NavigationDecision.prevent;
           },
         ),
       );
     _tune();
-    _controller.addJavaScriptChannel(
-      kWireName,
-      onMessageReceived: (JavaScriptMessage message) => _onWire(message.message),
-    );
     _controller.loadRequest(Uri.parse(widget.target));
   }
 
@@ -282,119 +243,65 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
     );
   }
 
-  void _notePage(String url) {
-    final Uri? uri = Uri.tryParse(url);
-    Glare.screenName('hosted:${uri == null ? url : '${uri.host}${uri.path}'}');
-    Glare.event('hosted_page');
-    Glare.tag('last_url', url);
-    if (!_offerSeen && !_pageFault) {
-      _offerSeen = true;
-      Glare.event('offer_seen');
-      Glare.tag('offer_ok', 'true');
-      if (uri?.host != null) Glare.tag('offer_host', uri!.host);
-    }
-    if (_purseRx.hasMatch(url)) {
-      Glare.event('purse_view');
-      Glare.tag('purse_seen', 'true');
-    }
-    _noteAuth(url);
-  }
-
-  void _noteAuth(String url) {
-    if (_joinRx.hasMatch(url)) {
-      Glare.event('join_view');
-      Glare.tag('join_seen', 'true');
-    } else if (_enterRx.hasMatch(url)) {
-      Glare.event('enter_view');
-      Glare.tag('enter_seen', 'true');
-    }
-  }
-
-  static String _why(WebResourceError err) {
-    final String text = err.description.toLowerCase();
-    final int code = err.errorCode;
-    if (text.contains('connection_refused') || text.contains('connection refused')) {
-      return 'refused';
-    }
-    if (text.contains('too_many_redirects') || text.contains('too many redirects')) {
-      return 'loop';
-    }
-    if (text.contains('name_not_resolved') ||
-        text.contains('address_unreachable') ||
-        text.contains('unknownhost') ||
-        code == -2) {
-      return 'lookup';
-    }
-    if (text.contains('timed out') || text.contains('timeout') || code == -8) {
-      return 'stalled';
-    }
-    if (text.contains('internet_disconnected') || text.contains('network_changed') || code == -6) {
-      return 'offline';
-    }
-    if (text.contains('connection_reset')) return 'reset';
-    if (text.contains('connection_closed') || text.contains('empty_response')) return 'closed';
-    if (text.contains('ssl') || text.contains('cert') || code == -11) return 'tls';
-    if (text.contains('blocked')) return 'held';
-    return 'misc';
-  }
-
-  void _onWire(String raw) {
-    final int cut = raw.indexOf(':');
-    final String kind = cut < 0 ? raw : raw.substring(0, cut);
-    final String data = cut < 0 ? '' : raw.substring(cut + 1);
-    switch (kind) {
-      case 'hop':
-        Glare.event('hosted_spa');
-        Glare.tag('last_path', data);
-        if (_purseRx.hasMatch(data)) {
-          Glare.event('purse_view');
-          Glare.tag('purse_seen', 'true');
-        }
-        _noteAuth(data);
-      case 'purse':
-        Glare.event('purse_tap');
-        Glare.tag('purse_want', 'true');
-        if (data.isNotEmpty) Glare.tag('purse_label', data);
-      case 'join_tap':
-        Glare.event('join_tap');
-        Glare.tag('join_want', 'true');
-      case 'enter_tap':
-        Glare.event('enter_tap');
-        Glare.tag('enter_want', 'true');
-      case 'auth_post':
-        if (data == 'join') {
-          Glare.event('join_send');
-          Glare.tag('join_try', 'true');
-        } else {
-          Glare.event('enter_send');
-          Glare.tag('enter_try', 'true');
-        }
-      case 'form_post':
-        Glare.event('form_send');
-    }
-  }
-
   Future<void> _back() async {
     if (await _controller.canGoBack()) await _controller.goBack();
+  }
+
+  void _noteKeys(FlutterView view) {
+    final double ratio = view.devicePixelRatio;
+    if (ratio <= 0) return;
+    final double inset = view.viewInsets.bottom / ratio;
+    if ((inset - _keyLogical).abs() < 1) return;
+    _keyLogical = inset;
+    final double span =
+        view.physicalSize.height - (_rim.top + _rim.bottom) * ratio;
+    if (span <= 0) return;
+    _share = (inset * ratio / span).clamp(0.0, 1.0);
+    _castShare(_share);
+  }
+
+  Future<void> _castShare(double share) async {
+    try {
+      await _controller.runJavaScript(
+        'window.__bbShare&&window.__bbShare(${share.toStringAsFixed(5)});',
+      );
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dropTimer?.cancel();
-    _maskTimer?.cancel();
     _shifts?.cancel();
     widget.horn.onWarmLink = null;
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
     super.dispose();
+  }
+
+  Future<void> _readCutout() async {
+    try {
+      final Object? raw = await _rimChannel.invokeMethod<Object>('read');
+      if (!mounted || raw is! Map) return;
+      final double unit = View.of(context).devicePixelRatio;
+      double edge(Object? value) {
+        final double px = (value as num?)?.toDouble() ?? 0;
+        if (px <= 0 || unit <= 0) return 0;
+        return px / unit;
+      }
+      final EdgeInsets next = EdgeInsets.fromLTRB(
+        edge(raw['left']),
+        edge(raw['top']),
+        edge(raw['right']),
+        edge(raw['bottom']),
+      );
+      if (next != _rim) setState(() => _rim = next);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool wide = MediaQuery.orientationOf(context) == Orientation.landscape;
+    final MediaQueryData media = MediaQuery.of(context);
+    final bool wide = media.orientation == Orientation.landscape;
+    final EdgeInsets notch = _rim;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, _) async {
@@ -406,9 +313,15 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            SafeArea(
-              bottom: false,
-              child: WebViewWidget(controller: _controller),
+            Padding(
+              padding: notch,
+              child: MediaQuery(
+                data: media.removeViewInsets(removeBottom: true).copyWith(
+                  padding: EdgeInsets.zero,
+                  viewPadding: EdgeInsets.zero,
+                ),
+                child: WebViewWidget(controller: _controller),
+              ),
             ),
             if (_spinning && !wide)
               const ColoredBox(
@@ -419,7 +332,6 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            if (_mask) const Positioned.fill(child: ColoredBox(color: Colors.black)),
           ],
         ),
       ),

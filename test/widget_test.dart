@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:beast_battle/slot/math.dart';
-import 'package:beast_battle/slot/symbols.dart';
+import 'package:beast_battle/slot/glyphs.dart';
 
 void main() {
   test('three cherries pay on the middle line', () {

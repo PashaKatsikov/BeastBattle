@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../skin.dart';
 import '../widgets/bits.dart';
-import 'web_page.dart';
+import 'leaflet.dart';
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class KnobsScreen extends StatelessWidget {
+  const KnobsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(
-                        builder: (_) => const WebPage(title: 'Privacy Policy', url: Pics.privacy, light: true),
+                        builder: (_) => const Leaflet(title: 'Privacy Policy', url: Pics.privacy, light: true),
                       ),
                     ),
                   ),
@@ -46,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute<void>(
-                        builder: (_) => const WebPage(title: 'Support', url: Pics.support),
+                        builder: (_) => const Leaflet(title: 'Support', url: Pics.support),
                       ),
                     ),
                   ),

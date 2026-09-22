@@ -26,14 +26,25 @@ class Horn {
   FirebaseMessaging? _fm;
   String? _token;
   bool _ready = false;
+  Future<void>? _opening;
 
   void Function(String url)? onWarmLink;
   void Function(String token)? onToken;
 
   String? get token => _token;
 
-  Future<void> warm() async {
-    if (_ready) return;
+  Future<void> warm() {
+    if (_ready) return Future<void>.value();
+    final Future<void>? pending = _opening;
+    if (pending != null) return pending;
+    final Future<void> run = _open();
+    _opening = run;
+    return run.whenComplete(() {
+      if (!_ready) _opening = null;
+    });
+  }
+
+  Future<void> _open() async {
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();

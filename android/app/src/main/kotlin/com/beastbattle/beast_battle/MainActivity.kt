@@ -2,14 +2,35 @@ package com.beastbattle.beast_battle
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
+import android.os.Bundle
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val bridge = "beastpit/pick"
+    private val rim = "beastpit/rim"
     private val requestCode = 0x2A6E
     private var pending: MethodChannel.Result? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        seatKeyboard()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        seatKeyboard()
+    }
+
+    // The window stays put. IME height still arrives as an inset, and the
+    // page shifts its own field instead of the WebView being resized.
+    private fun seatKeyboard() {
+        window.setDecorFitsSystemWindows(false)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -19,6 +40,22 @@ class MainActivity : FlutterActivity() {
                     val multi = call.argument<Boolean>("multi") ?: false
                     val kinds = call.argument<List<String>>("kinds") ?: emptyList()
                     openPicker(multi, kinds, result)
+                } else {
+                    result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, rim)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "read") {
+                    val cut = window.decorView.rootWindowInsets?.displayCutout
+                    result.success(
+                        mapOf(
+                            "left" to (cut?.safeInsetLeft ?: 0),
+                            "top" to (cut?.safeInsetTop ?: 0),
+                            "right" to (cut?.safeInsetRight ?: 0),
+                            "bottom" to (cut?.safeInsetBottom ?: 0),
+                        ),
+                    )
                 } else {
                     result.notImplemented()
                 }

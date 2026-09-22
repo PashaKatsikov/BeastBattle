@@ -33,6 +33,9 @@ class VerdictPost {
           )
           .timeout(_limit);
 
+      if (response.statusCode == 404) {
+        return const PitReply(admitted: false);
+      }
       if (response.statusCode != 200) {
         return PitReply.fault('status-${response.statusCode}');
       }

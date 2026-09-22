@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../pit/glare.dart';
 import '../pit/horn.dart';
 import '../pit/link_probe.dart';
 import '../pit/mark.dart';
@@ -9,7 +8,7 @@ import 'hosted.dart';
 import 'shell_art.dart';
 import 'slab.dart';
 
-class PromoBoard extends StatefulWidget {
+class PromoBoard extends StatelessWidget {
   const PromoBoard({
     super.key,
     required this.stash,
@@ -23,30 +22,14 @@ class PromoBoard extends StatefulWidget {
   final LinkProbe probe;
   final String target;
 
-  @override
-  State<PromoBoard> createState() => _PromoBoardState();
-}
-
-class _PromoBoardState extends State<PromoBoard> {
-  @override
-  void initState() {
-    super.initState();
-    Glare.screen('promo');
-  }
-
   Future<void> _allow(BuildContext context) async {
-    Glare.event('promo_yes');
-    final bool granted = await widget.horn.askPermission();
-    Glare.tag('note_perm', granted ? 'granted' : 'denied');
-    Glare.event(granted ? 'note_on' : 'note_off');
-    if (!granted) await widget.stash.writeSnooze(_snooze());
+    await horn.askPermission();
+    await stash.markPromoHalted();
     if (context.mounted) _open(context);
   }
 
   Future<void> _later(BuildContext context) async {
-    Glare.event('promo_later');
-    Glare.tag('note_perm', 'later');
-    await widget.stash.writeSnooze(_snooze());
+    await stash.writeSnooze(_snooze());
     if (context.mounted) _open(context);
   }
 
@@ -57,10 +40,10 @@ class _PromoBoardState extends State<PromoBoard> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => HostedPane(
-          target: widget.target,
-          stash: widget.stash,
-          horn: widget.horn,
-          probe: widget.probe,
+          target: target,
+          stash: stash,
+          horn: horn,
+          probe: probe,
         ),
       ),
     );
@@ -72,7 +55,6 @@ class _PromoBoardState extends State<PromoBoard> {
     final bool wide = size.width > size.height;
     final String art = wide ? ShellArt.promoWide : ShellArt.promoTall;
     final double primary = wide ? size.width * 0.32 : (size.width * 0.72).clamp(240, 380);
-    final double ghost = wide ? size.width * 0.2 : (size.width * 0.48).clamp(180, 280);
     final double bottom = size.height * (wide ? 0.07 : 0.08);
 
     final Widget stack = Column(
@@ -89,7 +71,7 @@ class _PromoBoardState extends State<PromoBoard> {
         GhostSlab(
           label: 'Skip',
           tight: wide,
-          width: ghost,
+          width: primary,
           onPressed: () => _later(context),
         ),
       ],
