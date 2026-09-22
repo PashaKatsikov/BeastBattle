@@ -9,8 +9,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.5.3
-  webview_flutter: ^4.13.0
+  shared_preferences: 2.5.1
+  webview_flutter: 4.12.0
+  webview_flutter_android: 4.8.0
+  connectivity_plus: 6.1.2
+  appsflyer_sdk: 6.17.3
+  firebase_core: 4.13.0
+  firebase_messaging: 16.5.0
+  firebase_app_check: 0.4.6
+  flutter_local_notifications: 19.5.0
+  flutter_secure_storage: 10.1.0
+  device_info_plus: 11.2.2
+  http: 1.4.0
+  url_launcher: 6.3.0
+  clarity_flutter: 1.10.0
+  crypto: 3.0.5
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +35,4 @@ flutter:
   assets:
     - assets/game/
     - assets/game/symbols/
+    - assets/shell/

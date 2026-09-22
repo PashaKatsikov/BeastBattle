@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "683104038955",
+    "project_id": "beastbattle-c5ce7",
+    "storage_bucket": "beastbattle-c5ce7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683104038955:android:49bce605f38600cff33a6e",
+        "android_client_info": {
+          "package_name": "com.beastbattle.game"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKZVGTqLuMR8y_4cV5yIN8xLKJNS9QS_o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
