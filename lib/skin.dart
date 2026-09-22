@@ -11,8 +11,8 @@ abstract final class Pics {
   static const auto = 'assets/game/auto.webp';
   static const beast = 'assets/game/beast.webp';
 
-  static const privacy = 'https://beastbattle.link/privacy-policy';
-  static const support = 'https://beastbattle.link/support';
+  static const privacy = 'https://beastbattle.link/privacy-policy.html';
+  static const support = 'https://beastbattle.link/support.html';
 
   static List<String> get bootList => [
         bgPortrait,
