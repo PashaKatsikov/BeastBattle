@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show FlutterView;
+import 'dart:ui' show FlutterView, ViewPadding;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -42,15 +42,16 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
   String? _lastUrl;
   int _loops = 0;
   Timer? _dropTimer;
+  Timer? _retryTimer;
   StreamSubscription<List<ConnectivityResult>>? _shifts;
 
   Size? _lastSize;
-  EdgeInsets _rim = EdgeInsets.zero;
   double _keyLogical = 0;
   double _share = 0;
 
+  static const int _maxLoops = 5;
+  static const int _hardCap = 10;
   static const MethodChannel _picker = MethodChannel('beastpit/pick');
-  static const MethodChannel _rimChannel = MethodChannel('beastpit/rim');
 
   @override
   void initState() {
@@ -63,10 +64,6 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
       DeviceOrientation.landscapeRight,
     ]);
     _immersive();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _readCutout();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _readCutout());
-    });
     _wire();
     widget.horn.onWarmLink = (String url) {
       if (mounted) _controller.loadRequest(Uri.parse(url));
@@ -100,10 +97,6 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
         WidgetsBinding.instance.platformDispatcher.views.isNotEmpty
             ? WidgetsBinding.instance.platformDispatcher.views.first
             : null;
-    _readCutout();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _readCutout();
-    });
     if (view == null) return;
     _noteKeys(view);
     final Size current = view.physicalSize;
@@ -139,28 +132,27 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
           onWebResourceError: (WebResourceError err) {
             if (err.isForMainFrame != true) return;
             final String desc = err.description.toLowerCase();
-            final bool loop = desc.contains('too_many_redirects') ||
-                desc.contains('too many redirects') ||
-                err.errorCode == -1007 ||
-                err.errorCode == -9;
-            if (loop && _lastUrl != null && _loops < 3) {
+            final int code = err.errorCode;
+            // A hard, unambiguous "no internet" from the stack.
+            final bool disconnected =
+                desc.contains('internet_disconnected') || code == -106;
+            if (disconnected) {
+              if (mounted) setState(() => _spinning = true);
+              _goOfflineIfDown();
+              return;
+            }
+            // Everything else — redirect loops, DNS blips, and especially
+            // ERR_NETWORK_CHANGED raised when a VPN tunnel comes up or down —
+            // is transient. Reload the last URL a few times before deciding
+            // we are actually offline, mirroring Chrome's own retry.
+            if (_loops < _maxLoops) {
               _loops++;
-              _controller.loadRequest(Uri.parse(_lastUrl!));
+              if (mounted) setState(() => _spinning = true);
+              _scheduleReload(const Duration(milliseconds: 600));
               return;
             }
             if (mounted) setState(() => _spinning = true);
-            final bool drop = desc.contains('name_not_resolved') ||
-                desc.contains('err_name_not_resolved') ||
-                desc.contains('internet_disconnected') ||
-                desc.contains('network_changed') ||
-                err.errorCode == -105 ||
-                err.errorCode == -106 ||
-                err.errorCode == -21;
-            if (drop) {
-              _goOffline();
-            } else {
-              _goOfflineIfDown();
-            }
+            _goOfflineIfDown();
           },
           onNavigationRequest: (NavigationRequest req) {
             final Uri? uri = Uri.tryParse(req.url);
@@ -219,9 +211,26 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  void _scheduleReload(Duration delay) {
+    _retryTimer?.cancel();
+    final String url = _lastUrl ?? widget.target;
+    _retryTimer = Timer(delay, () {
+      if (mounted && !_left) _controller.loadRequest(Uri.parse(url));
+    });
+  }
+
   Future<void> _goOfflineIfDown() async {
     if (_left) return;
-    if (await widget.probe.online()) return;
+    final bool up = await widget.probe.online();
+    if (!mounted || _left) return;
+    // A live link (commonly a VPN transport) is present but the page hit a
+    // transient error — keep retrying instead of dropping to the offline
+    // screen, up to a bound so we never spin forever.
+    if (up && _loops < _hardCap) {
+      _loops++;
+      _scheduleReload(const Duration(seconds: 2));
+      return;
+    }
     _goOffline();
   }
 
@@ -253,8 +262,8 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
     final double inset = view.viewInsets.bottom / ratio;
     if ((inset - _keyLogical).abs() < 1) return;
     _keyLogical = inset;
-    final double span =
-        view.physicalSize.height - (_rim.top + _rim.bottom) * ratio;
+    final ViewPadding pad = view.viewPadding;
+    final double span = view.physicalSize.height - pad.top - pad.bottom;
     if (span <= 0) return;
     _share = (inset * ratio / span).clamp(0.0, 1.0);
     _castShare(_share);
@@ -272,36 +281,20 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dropTimer?.cancel();
+    _retryTimer?.cancel();
     _shifts?.cancel();
     widget.horn.onWarmLink = null;
     super.dispose();
-  }
-
-  Future<void> _readCutout() async {
-    try {
-      final Object? raw = await _rimChannel.invokeMethod<Object>('read');
-      if (!mounted || raw is! Map) return;
-      final double unit = View.of(context).devicePixelRatio;
-      double edge(Object? value) {
-        final double px = (value as num?)?.toDouble() ?? 0;
-        if (px <= 0 || unit <= 0) return 0;
-        return px / unit;
-      }
-      final EdgeInsets next = EdgeInsets.fromLTRB(
-        edge(raw['left']),
-        edge(raw['top']),
-        edge(raw['right']),
-        edge(raw['bottom']),
-      );
-      if (next != _rim) setState(() => _rim = next);
-    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final MediaQueryData media = MediaQuery.of(context);
     final bool wide = media.orientation == Orientation.landscape;
-    final EdgeInsets notch = _rim;
+    // Synchronous, per-frame safe-area from Flutter itself. It updates in the
+    // same frame as a rotation, so the WebView is padded correctly at once
+    // instead of jumping a frame later like the old async native read did.
+    final EdgeInsets notch = media.viewPadding;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, _) async {
