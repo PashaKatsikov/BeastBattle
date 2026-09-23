@@ -176,6 +176,9 @@ class _HostedPaneState extends State<HostedPane> with WidgetsBindingObserver {
     if (_controller.platform is! AndroidWebViewController) return;
     final AndroidWebViewController android =
         _controller.platform as AndroidWebViewController;
+    // Pin the text scale to 100% so Android never inflates fonts on its own
+    // (e.g. when the layout width changes on rotation).
+    android.setTextZoom(100);
     android.setMediaPlaybackRequiresUserGesture(false);
     android.setOnPlatformPermissionRequest(
       (PlatformWebViewPermissionRequest req) => req.grant(),

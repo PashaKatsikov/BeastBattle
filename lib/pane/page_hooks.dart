@@ -135,6 +135,7 @@ String rimScript() => r'''
 
   var TAG = 'bb-rim-sheet';
   var RULES = [
+    'html,body{-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important;}',
     ':root{',
     '--safe-area-inset-top:0px!important;--safe-area-inset-right:0px!important;',
     '--safe-area-inset-bottom:0px!important;--safe-area-inset-left:0px!important;',
